@@ -6,7 +6,7 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
 # =====================================================
-# CONFIGURACIÓN GENERAL (IGUAL A MONITOREOS)
+# CONFIGURACIÓN GENERAL
 # =====================================================
 st.set_page_config(
     page_title="Inventario Conecta UR",
@@ -19,7 +19,6 @@ st.set_page_config(
 # =====================================================
 SPREADSHEET_ID = "177Cel8v0RcLhNeJ_K6zjwItN7Td2nM1M"
 HOJA_DATOS = "Hoja 1"
-
 FILE_ID_SEDES = "PEGA_AQUI_EL_ID_DEL_EXCEL_DE_SEDES"
 
 # =====================================================
@@ -61,32 +60,20 @@ def guardar_dato(fila):
     st.cache_data.clear()
 
 # =====================================================
-# SIDEBAR (IGUAL A MONITOREOS)
+# SIDEBAR (ESTILO MONITOREOS)
 # =====================================================
 st.sidebar.title("📦 Inventario Conecta UR")
 
-df_all = cargar_datos() if "Dashboard" else None
-
-sede_sb = st.sidebar.selectbox(
-    "Sede",
-    ["Todas"] + sorted(df_all["Sede"].unique()) if df_all is not None and not df_all.empty else ["Todas"]
+vista = st.sidebar.radio(
+    "Vista",
+    ["Formulario", "Dashboard"]
 )
-
-estado_sb = st.sidebar.selectbox(
-    "Estado",
-    ["Todos"] + sorted(df_all["Estado del equipo"].unique()) if df_all is not None and not df_all.empty else ["Todos"]
-)
-
-# =====================================================
-# TABS (MISMO CONCEPTO DE MONITOREOS)
-# =====================================================
-tab_form, tab_dash = st.tabs(["📝 Formulario", "📊 Dashboard"])
 
 # =====================================================
 # FORMULARIO
 # =====================================================
-with tab_form:
-    st.subheader("Registro de Inventario")
+if vista == "Formulario":
+    st.subheader("📝 Registro de Inventario")
 
     df_sedes = cargar_sedes()
 
@@ -107,7 +94,7 @@ with tab_form:
         estado = st.selectbox("Estado del equipo", ["Bueno", "Regular", "Malo"])
         observaciones = st.text_area("Observaciones")
 
-        guardar = st.form_submit_button("Guardar registro")
+        guardar = st.form_submit_button("Guardar")
 
         if guardar:
             guardar_dato([
@@ -122,10 +109,10 @@ with tab_form:
             st.success("✅ Registro guardado correctamente")
 
 # =====================================================
-# DASHBOARD (IGUAL A MONITOREOS)
+# DASHBOARD (MISMO PATRÓN DE MONITOREOS)
 # =====================================================
-with tab_dash:
-    st.subheader("Análisis de Inventario")
+if vista == "Dashboard":
+    st.subheader("📊 Análisis de Inventario")
 
     df = cargar_datos()
 
@@ -133,14 +120,40 @@ with tab_dash:
         st.warning("No hay datos registrados.")
         st.stop()
 
-    if sede_sb != "Todas":
-        df = df[df["Sede"] == sede_sb]
+    # ---------------------------
+    # FILTROS (EN DASHBOARD)
+    # ---------------------------
+    c1, c2, c3 = st.columns(3)
 
-    if estado_sb != "Todos":
-        df = df[df["Estado del equipo"] == estado_sb]
+    with c1:
+        sede_f = st.selectbox(
+            "Sede",
+            ["Todas"] + sorted(df["Sede"].unique())
+        )
+
+    with c2:
+        edificio_f = st.selectbox(
+            "Edificio",
+            ["Todos"] + sorted(df["Edificio"].unique())
+        )
+
+    with c3:
+        estado_f = st.selectbox(
+            "Estado",
+            ["Todos"] + sorted(df["Estado del equipo"].unique())
+        )
+
+    if sede_f != "Todas":
+        df = df[df["Sede"] == sede_f]
+
+    if edificio_f != "Todos":
+        df = df[df["Edificio"] == edificio_f]
+
+    if estado_f != "Todos":
+        df = df[df["Estado del equipo"] == estado_f]
 
     # ---------------------------
-    # KPIs (MISMO ESTILO)
+    # KPIs (IGUAL MONITOREOS)
     # ---------------------------
     k1, k2, k3, k4 = st.columns(4)
 
@@ -167,7 +180,7 @@ with tab_dash:
     st.divider()
 
     # ---------------------------
-    # TABLA FINAL
+    # TABLA
     # ---------------------------
     st.markdown("### Detalle de registros")
     st.dataframe(df, use_container_width=True)
