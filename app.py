@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# SEDES Y EDIFICIOS
+# SEDES Y EDIFICIOS (DEFINIDOS EN CÓDIGO)
 # =====================================================
 SEDES_EDIFICIOS = {
     "CENTRO": [
@@ -52,9 +52,9 @@ SEDES_EDIFICIOS = {
 }
 
 # =====================================================
-# GOOGLE SHEETS
+# GOOGLE SHEETS (AJUSTADO)
 # =====================================================
-SPREADSHEET_ID = "177Cel8v0RcLhNeJ_K6zjwItN7Td2nM1M"
+SPREADSHEET_ID = "1WW00PoA_SJGfJ6qvHNnFk4AhD6FZfOY_jiX2DM7mQjo"
 HOJA_DATOS = "Data"
 
 # =====================================================
@@ -77,18 +77,14 @@ gc = gspread.authorize(creds)
 # =====================================================
 @st.cache_data
 def cargar_datos():
-    try:
-        sh = gc.open_by_key(SPREADSHEET_ID)
-        sheet = sh.worksheet(HOJA_DATOS)
-        data = sheet.get_all_records()
-        return pd.DataFrame(data)
-    except Exception as e:
-        st.error("❌ Error al acceder al Google Sheet")
-        st.code(str(e))
-        return pd.DataFrame()
+    sh = gc.open_by_key(SPREADSHEET_ID)
+    sheet = sh.worksheet(HOJA_DATOS)
+    return pd.DataFrame(sheet.get_all_records())
+
 
 def guardar_dato(fila):
-    sheet = gc.open_by_key(SPREADSHEET_ID).worksheet(HOJA_DATOS)
+    sh = gc.open_by_key(SPREADSHEET_ID)
+    sheet = sh.worksheet(HOJA_DATOS)
     sheet.append_row(fila, value_input_option="USER_ENTERED")
     st.cache_data.clear()
 
@@ -216,7 +212,7 @@ if vista == "Dashboard":
     st.dataframe(df, use_container_width=True)
 
 # =====================================================
-# 🔍 DASH DE BÚSQUEDA POR PLACA
+# 🔍 BÚSQUEDA POR PLACA
 # =====================================================
 if vista == "🔍 Buscar por placa":
     st.subheader("🔍 Búsqueda por PLACA UR")
@@ -233,10 +229,10 @@ if vista == "🔍 Buscar por placa":
     )
 
     if placa_busqueda:
-        resultado = df[df["PLACA UR"].str.upper() == placa_busqueda.upper()]
+        resultado = df[df["PLACA UR"].astype(str).str.upper() == placa_busqueda.upper()]
 
         if resultado.empty:
             st.error("❌ No se encontró información para esa placa.")
         else:
-            st.success(f"✅ Se encontró información para la placa {placa_busqueda}")
+            st.success(f"✅ Información encontrada para la placa {placa_busqueda}")
             st.dataframe(resultado, use_container_width=True)
