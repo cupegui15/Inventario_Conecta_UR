@@ -55,7 +55,7 @@ SEDES_EDIFICIOS = {
 # GOOGLE SHEETS
 # =====================================================
 SPREADSHEET_ID = "177Cel8v0RcLhNeJ_K6zjwItN7Td2nM1M"
-HOJA_DATOS = "Hoja 1"
+HOJA_DATOS = "Data"
 
 # =====================================================
 # CREDENCIALES
