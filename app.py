@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# SEDES Y EDIFICIOS (DEFINIDOS EN CÓDIGO)
+# SEDES Y EDIFICIOS
 # =====================================================
 SEDES_EDIFICIOS = {
     "CENTRO": [
@@ -87,17 +87,17 @@ def guardar_dato(fila):
     st.cache_data.clear()
 
 # =====================================================
-# SIDEBAR (ESTILO MONITOREOS)
+# SIDEBAR
 # =====================================================
 st.sidebar.title("📦 Inventario Conecta UR")
 
 vista = st.sidebar.radio(
     "Vista",
-    ["Formulario", "Dashboard"]
+    ["Formulario", "Dashboard", "🔍 Buscar por placa"]
 )
 
 # =====================================================
-# FORMULARIO DE REGISTRO
+# FORMULARIO
 # =====================================================
 if vista == "Formulario":
     st.subheader("📝 Registro de Inventario")
@@ -160,7 +160,7 @@ if vista == "Formulario":
             st.success("✅ Registro guardado correctamente")
 
 # =====================================================
-# DASHBOARD (DISEÑO MONITOREOS)
+# DASHBOARD GENERAL
 # =====================================================
 if vista == "Dashboard":
     st.subheader("📊 Análisis de Inventario")
@@ -171,17 +171,12 @@ if vista == "Dashboard":
         st.warning("No hay datos registrados.")
         st.stop()
 
-    # ---------------------------
-    # FILTROS
-    # ---------------------------
     c1, c2, c3 = st.columns(3)
 
     with c1:
         sede_f = st.selectbox("SEDE", ["Todas"] + sorted(df["SEDE"].unique()))
-
     with c2:
         edificio_f = st.selectbox("EDIFICIO", ["Todos"] + sorted(df["EDIFICIO"].unique()))
-
     with c3:
         estado_f = st.selectbox(
             "ESTADO DEL EQUIPO",
@@ -190,18 +185,12 @@ if vista == "Dashboard":
 
     if sede_f != "Todas":
         df = df[df["SEDE"] == sede_f]
-
     if edificio_f != "Todos":
         df = df[df["EDIFICIO"] == edificio_f]
-
     if estado_f != "Todos":
         df = df[df["ESTADO DEL EQUIPO"] == estado_f]
 
-    # ---------------------------
-    # KPIs
-    # ---------------------------
     k1, k2, k3, k4 = st.columns(4)
-
     k1.metric("Total registros", len(df))
     k2.metric("Sedes", df["SEDE"].nunique())
     k3.metric("Edificios", df["EDIFICIO"].nunique())
@@ -209,23 +198,39 @@ if vista == "Dashboard":
 
     st.divider()
 
-    # ---------------------------
-    # GRÁFICOS
-    # ---------------------------
     g1, g2 = st.columns(2)
-
     with g1:
         st.markdown("**Estado del equipo**")
         st.bar_chart(df["ESTADO DEL EQUIPO"].value_counts())
-
     with g2:
         st.markdown("**Estado mantenimiento**")
         st.bar_chart(df["ESTADO MANTENIMIENTO"].value_counts())
 
     st.divider()
-
-    # ---------------------------
-    # TABLA
-    # ---------------------------
-    st.markdown("### Detalle de inventario")
     st.dataframe(df, use_container_width=True)
+
+# =====================================================
+# 🔍 DASH DE BÚSQUEDA POR PLACA
+# =====================================================
+if vista == "🔍 Buscar por placa":
+    st.subheader("🔍 Búsqueda por PLACA UR")
+
+    df = cargar_datos()
+
+    if df.empty:
+        st.warning("No hay datos registrados.")
+        st.stop()
+
+    placa_busqueda = st.text_input(
+        "Ingrese la PLACA UR",
+        placeholder="Ej: UR-12345"
+    )
+
+    if placa_busqueda:
+        resultado = df[df["PLACA UR"].str.upper() == placa_busqueda.upper()]
+
+        if resultado.empty:
+            st.error("❌ No se encontró información para esa placa.")
+        else:
+            st.success(f"✅ Se encontró información para la placa {placa_busqueda}")
+            st.dataframe(resultado, use_container_width=True)
