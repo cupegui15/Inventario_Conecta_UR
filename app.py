@@ -1,26 +1,30 @@
 import streamlit as st
 import pandas as pd
 import gspread
+import io
 from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
 
-# ==================================================
-# CONFIGURACIÓN GENERAL
-# ==================================================
+# =====================================================
+# CONFIGURACIÓN GENERAL (IGUAL A MONITOREOS)
+# =====================================================
 st.set_page_config(
     page_title="Inventario Conecta UR",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# ==================================================
+# =====================================================
 # CONSTANTES
-# ==================================================
+# =====================================================
 SPREADSHEET_ID = "177Cel8v0RcLhNeJ_K6zjwItN7Td2nM1M"
 HOJA_DATOS = "Hoja 1"
-ARCHIVO_SEDES = "Inventario  Sedes.xlsx"
 
-# ==================================================
-# CREDENCIALES GOOGLE
-# ==================================================
+FILE_ID_SEDES = "PEGA_AQUI_EL_ID_DEL_EXCEL_DE_SEDES"
+
+# =====================================================
+# CREDENCIALES
+# =====================================================
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
@@ -32,54 +36,69 @@ creds = Credentials.from_service_account_info(
 )
 
 gc = gspread.authorize(creds)
+drive_service = build("drive", "v3", credentials=creds)
 
-# ==================================================
-# CARGA DE DATOS
-# ==================================================
+# =====================================================
+# FUNCIONES
+# =====================================================
 @st.cache_data
 def cargar_sedes():
-    df = pd.read_excel(ARCHIVO_SEDES)
-    df = df.dropna(subset=["Sede", "Edificio"])
-    return df
+    request = drive_service.files().get_media(fileId=FILE_ID_SEDES)
+    file_bytes = request.execute()
+    df = pd.read_excel(io.BytesIO(file_bytes))
+    return df.dropna(subset=["Sede", "Edificio"])
 
 
 @st.cache_data
-def cargar_registros():
+def cargar_datos():
     sheet = gc.open_by_key(SPREADSHEET_ID).worksheet(HOJA_DATOS)
-    data = sheet.get_all_records()
-    return pd.DataFrame(data)
+    return pd.DataFrame(sheet.get_all_records())
 
 
-def guardar_registro(fila):
+def guardar_dato(fila):
     sheet = gc.open_by_key(SPREADSHEET_ID).worksheet(HOJA_DATOS)
     sheet.append_row(fila, value_input_option="USER_ENTERED")
     st.cache_data.clear()
 
-# ==================================================
-# SIDEBAR
-# ==================================================
+# =====================================================
+# SIDEBAR (IGUAL A MONITOREOS)
+# =====================================================
 st.sidebar.title("📦 Inventario Conecta UR")
 
-vista = st.sidebar.radio(
-    "Menú",
-    ["Formulario", "Dashboard"]
+df_all = cargar_datos() if "Dashboard" else None
+
+sede_sb = st.sidebar.selectbox(
+    "Sede",
+    ["Todas"] + sorted(df_all["Sede"].unique()) if df_all is not None and not df_all.empty else ["Todas"]
 )
 
-# ==================================================
+estado_sb = st.sidebar.selectbox(
+    "Estado",
+    ["Todos"] + sorted(df_all["Estado del equipo"].unique()) if df_all is not None and not df_all.empty else ["Todos"]
+)
+
+# =====================================================
+# TABS (MISMO CONCEPTO DE MONITOREOS)
+# =====================================================
+tab_form, tab_dash = st.tabs(["📝 Formulario", "📊 Dashboard"])
+
+# =====================================================
 # FORMULARIO
-# ==================================================
-if vista == "Formulario":
-    st.title("📝 Registro de Inventario")
+# =====================================================
+with tab_form:
+    st.subheader("Registro de Inventario")
 
     df_sedes = cargar_sedes()
 
-    sedes = sorted(df_sedes["Sede"].unique())
-    sede = st.selectbox("Sede", sedes)
-
-    edificios = sorted(
-        df_sedes[df_sedes["Sede"] == sede]["Edificio"].unique()
+    sede = st.selectbox(
+        "Sede",
+        sorted(df_sedes["Sede"].unique())
     )
-    edificio = st.selectbox("Edificio", edificios)
+
+    edificio = st.selectbox(
+        "Edificio",
+        sorted(df_sedes[df_sedes["Sede"] == sede]["Edificio"].unique())
+    )
 
     with st.form("form_inventario"):
         fecha = st.date_input("Fecha")
@@ -88,10 +107,10 @@ if vista == "Formulario":
         estado = st.selectbox("Estado del equipo", ["Bueno", "Regular", "Malo"])
         observaciones = st.text_area("Observaciones")
 
-        enviar = st.form_submit_button("Guardar registro")
+        guardar = st.form_submit_button("Guardar registro")
 
-        if enviar:
-            guardar_registro([
+        if guardar:
+            guardar_dato([
                 str(fecha),
                 sede,
                 edificio,
@@ -102,70 +121,53 @@ if vista == "Formulario":
             ])
             st.success("✅ Registro guardado correctamente")
 
-# ==================================================
-# DASHBOARD
-# ==================================================
-if vista == "Dashboard":
-    st.title("📊 Análisis de Inventario")
+# =====================================================
+# DASHBOARD (IGUAL A MONITOREOS)
+# =====================================================
+with tab_dash:
+    st.subheader("Análisis de Inventario")
 
-    df = cargar_registros()
+    df = cargar_datos()
 
     if df.empty:
-        st.warning("No hay datos para analizar.")
+        st.warning("No hay datos registrados.")
         st.stop()
 
-    # -------------------------
-    # FILTROS
-    # -------------------------
-    c1, c2, c3 = st.columns(3)
+    if sede_sb != "Todas":
+        df = df[df["Sede"] == sede_sb]
 
-    with c1:
-        sede_f = st.selectbox(
-            "Sede",
-            ["Todas"] + sorted(df["Sede"].unique())
-        )
+    if estado_sb != "Todos":
+        df = df[df["Estado del equipo"] == estado_sb]
 
-    with c2:
-        edificio_f = st.selectbox(
-            "Edificio",
-            ["Todos"] + sorted(df["Edificio"].unique())
-        )
-
-    with c3:
-        estado_f = st.selectbox(
-            "Estado",
-            ["Todos"] + sorted(df["Estado del equipo"].unique())
-        )
-
-    if sede_f != "Todas":
-        df = df[df["Sede"] == sede_f]
-
-    if edificio_f != "Todos":
-        df = df[df["Edificio"] == edificio_f]
-
-    if estado_f != "Todos":
-        df = df[df["Estado del equipo"] == estado_f]
-
-    # -------------------------
-    # KPIs
-    # -------------------------
-    k1, k2, k3 = st.columns(3)
+    # ---------------------------
+    # KPIs (MISMO ESTILO)
+    # ---------------------------
+    k1, k2, k3, k4 = st.columns(4)
 
     k1.metric("Total registros", len(df))
-    k2.metric("Equipos en mal estado", len(df[df["Estado del equipo"] == "Malo"]))
-    k3.metric("Sedes", df["Sede"].nunique())
+    k2.metric("Sedes", df["Sede"].nunique())
+    k3.metric("Edificios", df["Edificio"].nunique())
+    k4.metric("En mal estado", len(df[df["Estado del equipo"] == "Malo"]))
 
-    # -------------------------
-    # GRÁFICOS NATIVOS
-    # -------------------------
-    st.subheader("Estado de los equipos")
-    st.bar_chart(df["Estado del equipo"].value_counts())
+    st.divider()
 
-    st.subheader("Registros por sede")
-    st.bar_chart(df["Sede"].value_counts())
+    # ---------------------------
+    # GRÁFICOS
+    # ---------------------------
+    c1, c2 = st.columns(2)
 
-    # -------------------------
-    # TABLA
-    # -------------------------
-    st.subheader("Detalle")
+    with c1:
+        st.markdown("**Estado de equipos**")
+        st.bar_chart(df["Estado del equipo"].value_counts())
+
+    with c2:
+        st.markdown("**Equipos por sede**")
+        st.bar_chart(df["Sede"].value_counts())
+
+    st.divider()
+
+    # ---------------------------
+    # TABLA FINAL
+    # ---------------------------
+    st.markdown("### Detalle de registros")
     st.dataframe(df, use_container_width=True)
