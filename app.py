@@ -1,172 +1,164 @@
 import streamlit as st
 import pandas as pd
-from datetime import date
-from io import BytesIO
+import plotly.express as px
+import gspread
+from google.oauth2.service_account import Credentials
 
-# ===============================
+# =====================================
 # CONFIGURACIÓN GENERAL
-# ===============================
+# =====================================
 st.set_page_config(
-    page_title="Inventiro Conecta",
-    page_icon="📦",
+    page_title="Inventario Conecta UR",
     layout="wide"
 )
 
-# ===============================
-# ESTILO (REUTILIZADO DE TU PROYECTO)
-# ===============================
-st.markdown("""
-<style>
-:root {
-    --rojo-ur: #9B0029;
-    --gris-fondo: #f8f8f8;
-    --texto: #222;
-}
-html, body, .stApp {
-    background-color: var(--gris-fondo);
-    font-family: "Segoe UI", sans-serif;
-}
-[data-testid="stSidebar"] {
-    background-color: var(--rojo-ur);
-}
-[data-testid="stSidebar"] * {
-    color: white;
-    font-weight: 600;
-}
-.card {
-    background-color: white;
-    padding: 1.2rem;
-    border-radius: 10px;
-    border: 1px solid #e6e6e6;
-    margin-bottom: 1rem;
-}
-.section-title {
-    color: var(--rojo-ur);
-    font-weight: 700;
-    font-size: 1.3rem;
-}
-</style>
-""", unsafe_allow_html=True)
+# =====================================
+# CONSTANTES
+# =====================================
+SPREADSHEET_ID = "177Cel8v0RcLhNeJ_K6zjwItN7Td2nM1M"
+HOJA_DATOS = "Hoja 1"  # ⚠️ cambia el nombre si tu hoja se llama diferente
 
-# ===============================
-# CARGA DE EXCEL BASE (SEDES)
-# ===============================
-@st.cache_data
-def cargar_sedes():
-    df = pd.read_excel("/mnt/data/Inventario  Sedes.xlsx")
-    df.columns = df.columns.str.strip()
-    return df
+# =====================================
+# CREDENCIALES GOOGLE
+# =====================================
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
 
-df_sedes = cargar_sedes()
-
-# ===============================
-# LISTAS PREDEFINIDAS
-# ===============================
-sedes = sorted(df_sedes["Sede"].dropna().unique())
-
-estados_equipo = ["Operativo", "En reparación", "Dado de baja"]
-estados_mantenimiento = ["Al día", "Pendiente", "Vencido"]
-tipos_mantenimiento = ["Preventivo", "Correctivo", "No aplica"]
-
-# ===============================
-# SIDEBAR
-# ===============================
-st.sidebar.title("📦 Inventiro Conecta")
-pagina = st.sidebar.radio(
-    "Menú",
-    ["📝 Registro de Inventario"]
+creds = Credentials.from_service_account_info(
+    st.secrets["gcp_service_account"],
+    scopes=SCOPES
 )
 
-# ===============================
-# FORMULARIO PRINCIPAL
-# ===============================
-if pagina == "📝 Registro de Inventario":
+gc = gspread.authorize(creds)
 
-    st.markdown('<div class="section-title">🧾 Registro de Activo Tecnológico</div>', unsafe_allow_html=True)
+# =====================================
+# FUNCIONES
+# =====================================
+@st.cache_data
+def cargar_datos():
+    sheet = gc.open_by_key(SPREADSHEET_ID).worksheet(HOJA_DATOS)
+    data = sheet.get_all_records()
+    return pd.DataFrame(data)
+
+
+def guardar_datos(fila):
+    sheet = gc.open_by_key(SPREADSHEET_ID).worksheet(HOJA_DATOS)
+    sheet.append_row(fila, value_input_option="USER_ENTERED")
+    st.cache_data.clear()
+
+
+# =====================================
+# SIDEBAR
+# =====================================
+st.sidebar.title("📦 Inventario Conecta UR")
+
+vista = st.sidebar.radio(
+    "Menú",
+    ["Formulario", "Dashboard"]
+)
+
+# =====================================
+# FORMULARIO
+# =====================================
+if vista == "Formulario":
+    st.title("📝 Registro de Inventario")
 
     with st.form("form_inventario"):
+        fecha = st.date_input("Fecha")
+        sede = st.text_input("Sede")
+        area = st.text_input("Área")
+        equipo = st.text_input("Equipo")
+        estado = st.selectbox("Estado del equipo", ["Bueno", "Regular", "Malo"])
+        observaciones = st.text_area("Observaciones")
 
-        c1, c2 = st.columns(2)
+        enviar = st.form_submit_button("Guardar registro")
 
-        with c1:
-            sede = st.selectbox("Sede *", ["Seleccione"] + sedes)
+        if enviar:
+            guardar_datos([
+                str(fecha),
+                sede,
+                area,
+                equipo,
+                estado,
+                observaciones
+            ])
+            st.success("✅ Registro guardado correctamente en la última fila")
 
-            edificios = []
-            if sede != "Seleccione":
-                edificios = (
-                    df_sedes[df_sedes["Sede"] == sede]["Edificio"]
-                    .dropna()
-                    .unique()
-                )
+# =====================================
+# DASHBOARD
+# =====================================
+if vista == "Dashboard":
+    st.title("📊 Análisis de Inventario")
 
-            edificio = st.selectbox("Edificio *", ["Seleccione"] + list(edificios))
-            ubicacion = st.text_input("Ubicación")
+    df = cargar_datos()
 
-            marca = st.text_input("Marca")
-            modelo = st.text_input("Modelo")
+    if df.empty:
+        st.warning("⚠️ Aún no hay datos para analizar.")
+        st.stop()
 
-        with c2:
-            placa = st.text_input("Placa UR *")
-            serial = st.text_input("Serial *")
-            mac_wifi = st.text_input("MAC WiFi")
-            mac_lan = st.text_input("MAC LAN")
-            responsable = st.text_input("Responsable del equipo")
+    # -------------------------
+    # FILTROS
+    # -------------------------
+    c1, c2, c3 = st.columns(3)
 
-        st.divider()
-
-        c3, c4, c5 = st.columns(3)
-
-        with c3:
-            estado_equipo = st.selectbox("Estado del equipo", estados_equipo)
-
-        with c4:
-            estado_mantenimiento = st.selectbox(
-                "Estado del mantenimiento",
-                estados_mantenimiento
-            )
-
-        with c5:
-            tipo_mantenimiento = st.selectbox(
-                "Tipo de mantenimiento",
-                tipos_mantenimiento
-            )
-
-        observaciones = st.text_area(
-            "Observaciones",
-            height=120,
-            placeholder="Observaciones generales del equipo..."
+    with c1:
+        sede_filtro = st.selectbox(
+            "Filtrar por sede",
+            ["Todas"] + sorted(df["Sede"].unique())
         )
 
-        guardar = st.form_submit_button("💾 Guardar registro")
+    with c2:
+        estado_filtro = st.selectbox(
+            "Filtrar por estado",
+            ["Todos"] + sorted(df["Estado del equipo"].unique())
+        )
 
-    # ===============================
-    # VALIDACIÓN Y GUARDADO
-    # ===============================
-    if guardar:
+    with c3:
+        area_filtro = st.selectbox(
+            "Filtrar por área",
+            ["Todas"] + sorted(df["Área"].unique())
+        )
 
-        if sede == "Seleccione" or edificio == "Seleccione":
-            st.error("⚠️ Debes seleccionar sede y edificio.")
-        elif not placa.strip() or not serial.strip():
-            st.error("⚠️ Placa UR y Serial son obligatorios.")
-        else:
-            registro = {
-                "Fecha registro": date.today(),
-                "Sede": sede,
-                "Edificio": edificio,
-                "Ubicación": ubicacion,
-                "Marca": marca,
-                "Modelo": modelo,
-                "Placa UR": placa,
-                "Serial": serial,
-                "MAC WiFi": mac_wifi,
-                "MAC LAN": mac_lan,
-                "Responsable": responsable,
-                "Estado equipo": estado_equipo,
-                "Estado mantenimiento": estado_mantenimiento,
-                "Tipo mantenimiento": tipo_mantenimiento,
-                "Observaciones": observaciones
-            }
+    if sede_filtro != "Todas":
+        df = df[df["Sede"] == sede_filtro]
 
-            st.success("✅ Registro validado correctamente")
-            st.json(registro)  # Visualización temporal (luego se guarda en Sheets o DB)
+    if estado_filtro != "Todos":
+        df = df[df["Estado del equipo"] == estado_filtro]
 
+    if area_filtro != "Todas":
+        df = df[df["Área"] == area_filtro]
+
+    # -------------------------
+    # KPIs
+    # -------------------------
+    k1, k2, k3 = st.columns(3)
+
+    k1.metric("Total registros", len(df))
+    k2.metric("Equipos en mal estado", len(df[df["Estado del equipo"] == "Malo"]))
+    k3.metric("Sedes únicas", df["Sede"].nunique())
+
+    # -------------------------
+    # GRÁFICOS
+    # -------------------------
+    st.subheader("Distribución por estado")
+
+    fig_estado = px.pie(
+        df,
+        names="Estado del equipo"
+    )
+    st.plotly_chart(fig_estado, use_container_width=True)
+
+    st.subheader("Equipos por sede")
+
+    fig_sede = px.bar(
+        df,
+        x="Sede",
+        color="Estado del equipo",
+        barmode="group"
+    )
+    st.plotly_chart(fig_sede, use_container_width=True)
+
+    st.subheader("Detalle de registros")
+    st.dataframe(df, use_container_width=True)
