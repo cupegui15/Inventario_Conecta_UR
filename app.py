@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
 import gspread
-import io
 from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
 
 # =====================================================
 # CONFIGURACIÓN GENERAL
@@ -19,7 +17,7 @@ st.set_page_config(
 # =====================================================
 SPREADSHEET_ID = "177Cel8v0RcLhNeJ_K6zjwItN7Td2nM1M"
 HOJA_DATOS = "Hoja 1"
-FILE_ID_SEDES = "PEGA_AQUI_EL_ID_DEL_EXCEL_DE_SEDES"
+HOJA_SEDES = "Sedes"
 
 # =====================================================
 # CREDENCIALES
@@ -35,24 +33,14 @@ creds = Credentials.from_service_account_info(
 )
 
 gc = gspread.authorize(creds)
-drive_service = build("drive", "v3", credentials=creds)
 
 # =====================================================
 # FUNCIONES
 # =====================================================
 @st.cache_data
 def cargar_sedes():
-    # Exporta el archivo como Excel aunque sea Google Sheets
-    request = drive_service.files().export_media(
-        fileId=FILE_ID_SEDES,
-        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-    file_bytes = request.execute()
-
-    df = pd.read_excel(io.BytesIO(file_bytes))
-    return df.dropna(subset=["Sede", "Edificio"])
-
+    sheet = gc.open_by_key(SPREADSHEET_ID).worksheet(HOJA_SEDES)
+    return pd.DataFrame(sheet.get_all_records())
 
 
 @st.cache_data
@@ -116,7 +104,7 @@ if vista == "Formulario":
             st.success("✅ Registro guardado correctamente")
 
 # =====================================================
-# DASHBOARD (MISMO PATRÓN DE MONITOREOS)
+# DASHBOARD (MISMO DISEÑO DE MONITOREOS)
 # =====================================================
 if vista == "Dashboard":
     st.subheader("📊 Análisis de Inventario")
@@ -128,27 +116,18 @@ if vista == "Dashboard":
         st.stop()
 
     # ---------------------------
-    # FILTROS (EN DASHBOARD)
+    # FILTROS
     # ---------------------------
     c1, c2, c3 = st.columns(3)
 
     with c1:
-        sede_f = st.selectbox(
-            "Sede",
-            ["Todas"] + sorted(df["Sede"].unique())
-        )
+        sede_f = st.selectbox("Sede", ["Todas"] + sorted(df["Sede"].unique()))
 
     with c2:
-        edificio_f = st.selectbox(
-            "Edificio",
-            ["Todos"] + sorted(df["Edificio"].unique())
-        )
+        edificio_f = st.selectbox("Edificio", ["Todos"] + sorted(df["Edificio"].unique()))
 
     with c3:
-        estado_f = st.selectbox(
-            "Estado",
-            ["Todos"] + sorted(df["Estado del equipo"].unique())
-        )
+        estado_f = st.selectbox("Estado", ["Todos"] + sorted(df["Estado del equipo"].unique()))
 
     if sede_f != "Todas":
         df = df[df["Sede"] == sede_f]
@@ -160,7 +139,7 @@ if vista == "Dashboard":
         df = df[df["Estado del equipo"] == estado_f]
 
     # ---------------------------
-    # KPIs (IGUAL MONITOREOS)
+    # KPIs
     # ---------------------------
     k1, k2, k3, k4 = st.columns(4)
 
