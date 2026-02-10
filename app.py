@@ -77,9 +77,15 @@ gc = gspread.authorize(creds)
 # =====================================================
 @st.cache_data
 def cargar_datos():
-    sheet = gc.open_by_key(SPREADSHEET_ID).worksheet(HOJA_DATOS)
-    return pd.DataFrame(sheet.get_all_records())
-
+    try:
+        sh = gc.open_by_key(SPREADSHEET_ID)
+        sheet = sh.worksheet(HOJA_DATOS)
+        data = sheet.get_all_records()
+        return pd.DataFrame(data)
+    except Exception as e:
+        st.error("❌ Error al acceder al Google Sheet")
+        st.code(str(e))
+        return pd.DataFrame()
 
 def guardar_dato(fila):
     sheet = gc.open_by_key(SPREADSHEET_ID).worksheet(HOJA_DATOS)
