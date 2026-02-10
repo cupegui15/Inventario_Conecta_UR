@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -16,7 +15,7 @@ st.set_page_config(
 # CONSTANTES
 # =====================================
 SPREADSHEET_ID = "177Cel8v0RcLhNeJ_K6zjwItN7Td2nM1M"
-HOJA_DATOS = "Hoja 1"  # ⚠️ cambia el nombre si tu hoja se llama diferente
+HOJA_DATOS = "Data"  # Cambia si tu hoja tiene otro nombre
 
 # =====================================
 # CREDENCIALES GOOGLE
@@ -48,12 +47,10 @@ def guardar_datos(fila):
     sheet.append_row(fila, value_input_option="USER_ENTERED")
     st.cache_data.clear()
 
-
 # =====================================
 # SIDEBAR
 # =====================================
 st.sidebar.title("📦 Inventario Conecta UR")
-
 vista = st.sidebar.radio(
     "Menú",
     ["Formulario", "Dashboard"]
@@ -84,7 +81,7 @@ if vista == "Formulario":
                 estado,
                 observaciones
             ])
-            st.success("✅ Registro guardado correctamente en la última fila")
+            st.success("✅ Registro guardado correctamente")
 
 # =====================================
 # DASHBOARD
@@ -95,7 +92,7 @@ if vista == "Dashboard":
     df = cargar_datos()
 
     if df.empty:
-        st.warning("⚠️ Aún no hay datos para analizar.")
+        st.warning("⚠️ No hay datos registrados aún.")
         st.stop()
 
     # -------------------------
@@ -134,31 +131,21 @@ if vista == "Dashboard":
     # KPIs
     # -------------------------
     k1, k2, k3 = st.columns(3)
-
     k1.metric("Total registros", len(df))
     k2.metric("Equipos en mal estado", len(df[df["Estado del equipo"] == "Malo"]))
     k3.metric("Sedes únicas", df["Sede"].nunique())
 
     # -------------------------
-    # GRÁFICOS
+    # GRÁFICOS NATIVOS
     # -------------------------
-    st.subheader("Distribución por estado")
+    st.subheader("📊 Estado de los equipos")
+    st.bar_chart(df["Estado del equipo"].value_counts())
 
-    fig_estado = px.pie(
-        df,
-        names="Estado del equipo"
-    )
-    st.plotly_chart(fig_estado, use_container_width=True)
+    st.subheader("📊 Registros por sede")
+    st.bar_chart(df["Sede"].value_counts())
 
-    st.subheader("Equipos por sede")
-
-    fig_sede = px.bar(
-        df,
-        x="Sede",
-        color="Estado del equipo",
-        barmode="group"
-    )
-    st.plotly_chart(fig_sede, use_container_width=True)
-
-    st.subheader("Detalle de registros")
+    # -------------------------
+    # TABLA
+    # -------------------------
+    st.subheader("📋 Detalle de registros")
     st.dataframe(df, use_container_width=True)
