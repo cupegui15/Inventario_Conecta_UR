@@ -55,7 +55,7 @@ SEDES_EDIFICIOS = {
 # GOOGLE SHEETS
 # =====================================================
 SPREADSHEET_ID = "177Cel8v0RcLhNeJ_K6zjwItN7Td2nM1M"
-HOJA_DATOS = "Datos"
+HOJA_DATOS = "Hoja 1"
 
 # =====================================================
 # CREDENCIALES
@@ -97,47 +97,70 @@ vista = st.sidebar.radio(
 )
 
 # =====================================================
-# FORMULARIO
+# FORMULARIO DE REGISTRO
 # =====================================================
 if vista == "Formulario":
     st.subheader("📝 Registro de Inventario")
 
-    sede = st.selectbox(
-        "Sede",
-        sorted(SEDES_EDIFICIOS.keys())
-    )
-
-    edificio = st.selectbox(
-        "Edificio",
-        SEDES_EDIFICIOS[sede]
-    )
+    sede = st.selectbox("SEDE", sorted(SEDES_EDIFICIOS.keys()))
+    edificio = st.selectbox("EDIFICIO", SEDES_EDIFICIOS[sede])
 
     with st.form("form_inventario"):
-        fecha = st.date_input("Fecha")
-        area = st.text_input("Área")
-        equipo = st.text_input("Equipo")
-        estado = st.selectbox(
-            "Estado del equipo",
+        ubicacion = st.text_input("UBICACION")
+        tipo_equipo = st.text_input("TIPO EQUIPO")
+        marca = st.text_input("MARCA")
+        modelo = st.text_input("MODELO")
+        placa_ur = st.text_input("PLACA UR")
+        serial = st.text_input("SERIAL")
+        monitor_1 = st.text_input("MONITOR 1")
+        monitor_2 = st.text_input("MONITOR 2")
+        mac_wifi = st.text_input("MAC WIFI")
+        mac_lan = st.text_input("MAC LAN")
+        responsable = st.text_input("RESPONSABLE EQUIPO")
+
+        estado_equipo = st.selectbox(
+            "ESTADO DEL EQUIPO",
             ["Bueno", "Regular", "Malo"]
         )
-        observaciones = st.text_area("Observaciones")
 
-        guardar = st.form_submit_button("Guardar")
+        estado_mantenimiento = st.selectbox(
+            "ESTADO MANTENIMIENTO",
+            ["Al día", "Pendiente", "Vencido"]
+        )
+
+        tipo_mantenimiento = st.selectbox(
+            "TIPO DE MANTENIMIENTO",
+            ["Preventivo", "Correctivo", "No aplica"]
+        )
+
+        observaciones = st.text_area("OBSERVACIONES")
+
+        guardar = st.form_submit_button("Guardar registro")
 
         if guardar:
             guardar_dato([
-                str(fecha),
                 sede,
                 edificio,
-                area,
-                equipo,
-                estado,
+                ubicacion,
+                tipo_equipo,
+                marca,
+                modelo,
+                placa_ur,
+                serial,
+                monitor_1,
+                monitor_2,
+                mac_wifi,
+                mac_lan,
+                responsable,
+                estado_equipo,
+                estado_mantenimiento,
+                tipo_mantenimiento,
                 observaciones
             ])
             st.success("✅ Registro guardado correctamente")
 
 # =====================================================
-# DASHBOARD (MISMO DISEÑO DE MONITOREOS)
+# DASHBOARD (DISEÑO MONITOREOS)
 # =====================================================
 if vista == "Dashboard":
     st.subheader("📊 Análisis de Inventario")
@@ -154,31 +177,25 @@ if vista == "Dashboard":
     c1, c2, c3 = st.columns(3)
 
     with c1:
-        sede_f = st.selectbox(
-            "Sede",
-            ["Todas"] + sorted(df["Sede"].unique())
-        )
+        sede_f = st.selectbox("SEDE", ["Todas"] + sorted(df["SEDE"].unique()))
 
     with c2:
-        edificio_f = st.selectbox(
-            "Edificio",
-            ["Todos"] + sorted(df["Edificio"].unique())
-        )
+        edificio_f = st.selectbox("EDIFICIO", ["Todos"] + sorted(df["EDIFICIO"].unique()))
 
     with c3:
         estado_f = st.selectbox(
-            "Estado",
-            ["Todos"] + sorted(df["Estado del equipo"].unique())
+            "ESTADO DEL EQUIPO",
+            ["Todos"] + sorted(df["ESTADO DEL EQUIPO"].unique())
         )
 
     if sede_f != "Todas":
-        df = df[df["Sede"] == sede_f]
+        df = df[df["SEDE"] == sede_f]
 
     if edificio_f != "Todos":
-        df = df[df["Edificio"] == edificio_f]
+        df = df[df["EDIFICIO"] == edificio_f]
 
     if estado_f != "Todos":
-        df = df[df["Estado del equipo"] == estado_f]
+        df = df[df["ESTADO DEL EQUIPO"] == estado_f]
 
     # ---------------------------
     # KPIs
@@ -186,9 +203,9 @@ if vista == "Dashboard":
     k1, k2, k3, k4 = st.columns(4)
 
     k1.metric("Total registros", len(df))
-    k2.metric("Sedes", df["Sede"].nunique())
-    k3.metric("Edificios", df["Edificio"].nunique())
-    k4.metric("En mal estado", len(df[df["Estado del equipo"] == "Malo"]))
+    k2.metric("Sedes", df["SEDE"].nunique())
+    k3.metric("Edificios", df["EDIFICIO"].nunique())
+    k4.metric("Equipos en mal estado", len(df[df["ESTADO DEL EQUIPO"] == "Malo"]))
 
     st.divider()
 
@@ -198,17 +215,17 @@ if vista == "Dashboard":
     g1, g2 = st.columns(2)
 
     with g1:
-        st.markdown("**Estado de equipos**")
-        st.bar_chart(df["Estado del equipo"].value_counts())
+        st.markdown("**Estado del equipo**")
+        st.bar_chart(df["ESTADO DEL EQUIPO"].value_counts())
 
     with g2:
-        st.markdown("**Equipos por sede**")
-        st.bar_chart(df["Sede"].value_counts())
+        st.markdown("**Estado mantenimiento**")
+        st.bar_chart(df["ESTADO MANTENIMIENTO"].value_counts())
 
     st.divider()
 
     # ---------------------------
     # TABLA
     # ---------------------------
-    st.markdown("### Detalle de registros")
+    st.markdown("### Detalle de inventario")
     st.dataframe(df, use_container_width=True)
