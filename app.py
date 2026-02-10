@@ -42,10 +42,17 @@ drive_service = build("drive", "v3", credentials=creds)
 # =====================================================
 @st.cache_data
 def cargar_sedes():
-    request = drive_service.files().get_media(fileId=FILE_ID_SEDES)
+    # Exporta el archivo como Excel aunque sea Google Sheets
+    request = drive_service.files().export_media(
+        fileId=FILE_ID_SEDES,
+        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
     file_bytes = request.execute()
+
     df = pd.read_excel(io.BytesIO(file_bytes))
     return df.dropna(subset=["Sede", "Edificio"])
+
 
 
 @st.cache_data
