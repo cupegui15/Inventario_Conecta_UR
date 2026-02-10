@@ -52,10 +52,10 @@ SEDES_EDIFICIOS = {
 }
 
 # =====================================================
-# CONSTANTES GOOGLE SHEETS
+# GOOGLE SHEETS
 # =====================================================
 SPREADSHEET_ID = "177Cel8v0RcLhNeJ_K6zjwItN7Td2nM1M"
-HOJA_DATOS = "Hoja 1"
+HOJA_DATOS = "Datos"
 
 # =====================================================
 # CREDENCIALES
@@ -116,7 +116,10 @@ if vista == "Formulario":
         fecha = st.date_input("Fecha")
         area = st.text_input("Área")
         equipo = st.text_input("Equipo")
-        estado = st.selectbox("Estado del equipo", ["Bueno", "Regular", "Malo"])
+        estado = st.selectbox(
+            "Estado del equipo",
+            ["Bueno", "Regular", "Malo"]
+        )
         observaciones = st.text_area("Observaciones")
 
         guardar = st.form_submit_button("Guardar")
@@ -134,7 +137,7 @@ if vista == "Formulario":
             st.success("✅ Registro guardado correctamente")
 
 # =====================================================
-# DASHBOARD (MISMO DISEÑO MONITOREOS)
+# DASHBOARD (MISMO DISEÑO DE MONITOREOS)
 # =====================================================
 if vista == "Dashboard":
     st.subheader("📊 Análisis de Inventario")
@@ -199,3 +202,13 @@ if vista == "Dashboard":
         st.bar_chart(df["Estado del equipo"].value_counts())
 
     with g2:
+        st.markdown("**Equipos por sede**")
+        st.bar_chart(df["Sede"].value_counts())
+
+    st.divider()
+
+    # ---------------------------
+    # TABLA
+    # ---------------------------
+    st.markdown("### Detalle de registros")
+    st.dataframe(df, use_container_width=True)
